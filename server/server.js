@@ -34,8 +34,21 @@ const clean = (s, max = 40) => String(s || '').replace(/[\u0000-\u001f<>]/g, '')
 function publicPeer(p) { return { id: p.id, name: p.name, role: p.role, state: p.state, online: !!p.res }; }
 
 function send(peer, event, data) {
-  if (!peer.res) { peer.queue.push([event, data]); if (peer.queue.length > 200) peer.queue.shift(); return; }
+  if (!peer.res) {
+    peer.queue.push([event, data]); if (peer.queue.length > 200) peer.queue.shift();
+    if (peer.poller) flushPoll(peer);
+    return;
+  }
   peer.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+// Long-poll fallback (for proxies/tunnels that buffer or block event streams).
+function flushPoll(peer) {
+  const res = peer.poller; if (!res) return;
+  peer.poller = null; clearTimeout(peer.pollTimer);
+  const events = peer.queue.splice(0).map(([event, data]) => ({ event, data }));
+  json(res, 200, { events });
+  clearTimeout(peer.graceTimer);
+  peer.graceTimer = setTimeout(() => peer.room && removePeer(peer.room, peer, 'disconnected'), 20000);
 }
 function broadcast(room, event, data, exceptId) {
   for (const p of room.peers.values()) if (p.id !== exceptId) send(p, event, data);
@@ -43,8 +56,9 @@ function broadcast(room, event, data, exceptId) {
 function removePeer(room, peer, reason) {
   if (!room.peers.has(peer.id)) return;
   room.peers.delete(peer.id);
-  clearTimeout(peer.graceTimer);
+  clearTimeout(peer.graceTimer); clearTimeout(peer.pollTimer);
   try { peer.res?.end(); } catch {}
+  if (peer.poller) { try { json(peer.poller, 200, { events: [{ event: 'gone', data: {} }] }); } catch {} peer.poller = null; }
   broadcast(room, 'peer-left', { id: peer.id, reason });
   room.lastActive = Date.now();
 }
@@ -53,7 +67,7 @@ function removePeer(room, peer, reason) {
 setInterval(() => {
   const now = Date.now();
   for (const [id, room] of rooms) {
-    for (const p of room.peers.values()) if (!p.res && !p.graceTimer && now - p.joinedAt > 30000) removePeer(room, p, 'timeout');
+    for (const p of room.peers.values()) if (!p.res && !p.poller && !p.graceTimer && now - p.joinedAt > 30000) removePeer(room, p, 'timeout');
     if (room.peers.size === 0 && now - room.lastActive > cfg.roomTtlHours * 3600e3) rooms.delete(id);
   }
 }, 10000).unref();
@@ -212,7 +226,7 @@ async function api(req, res, url) {
     if (room.peers.size >= cfg.maxPeers) return fail(res, 409, 'room_full');
     const peer = {
       id: crypto.randomBytes(6).toString('hex'), token: token(), name: clean(body.name, 32) || 'Guest',
-      role: body.role === 'teacher' ? 'teacher' : 'student', state: {}, res: null, queue: [], joinedAt: Date.now(),
+      role: body.role === 'teacher' ? 'teacher' : 'student', state: {}, res: null, queue: [], joinedAt: Date.now(), room,
     };
     room.peers.set(peer.id, peer);
     room.lastActive = Date.now();
@@ -234,6 +248,7 @@ async function api(req, res, url) {
     req.socket.setNoDelay(true);
     req.socket.setTimeout(0);
     const reconnect = !!peer.everConnected;
+    peer.mode = 'sse';
     try { peer.res?.end(); } catch {}
     clearTimeout(peer.graceTimer); peer.graceTimer = null;
     peer.res = res; peer.everConnected = true;
@@ -248,6 +263,26 @@ async function api(req, res, url) {
       // Grace period: mobile networks drop streams briefly; keep the seat for 20 s.
       peer.graceTimer = setTimeout(() => removePeer(room, peer, 'disconnected'), 20000);
     });
+    return;
+  }
+
+  // GET /api/rooms/:id/poll?peer=&token=   long-poll alternative to the event stream
+  if (sub === 'poll' && m === 'GET') {
+    const peer = authPeer(room, url.searchParams.get('peer'), url.searchParams.get('token'));
+    if (!peer) return json(res, 200, { events: [{ event: 'gone', data: {} }] });
+    clearTimeout(peer.graceTimer); peer.graceTimer = null;
+    if (peer.poller) { const old = peer.poller; peer.poller = null; clearTimeout(peer.pollTimer); json(old, 200, { events: [] }); }
+    if (peer.mode !== 'poll') { // first poll: switch this peer to polling
+      const reconnect = !!peer.everConnected;
+      if (peer.res) { try { peer.res.end(); } catch {} peer.res = null; }
+      peer.mode = 'poll'; peer.everConnected = true;
+      peer.queue.unshift(['hello', { you: peer.id, peers: [...room.peers.values()].filter((p) => p.id !== peer.id).map(publicPeer) }]);
+      broadcast(room, reconnect ? 'peer-reconnected' : 'peer-joined', publicPeer(peer), peer.id);
+    }
+    peer.poller = res;
+    if (peer.queue.length) return flushPoll(peer);
+    peer.pollTimer = setTimeout(() => flushPoll(peer), 25000);
+    req.on('close', () => { if (peer.poller === res) { peer.poller = null; clearTimeout(peer.pollTimer); clearTimeout(peer.graceTimer); peer.graceTimer = setTimeout(() => removePeer(room, peer, 'disconnected'), 20000); } });
     return;
   }
 

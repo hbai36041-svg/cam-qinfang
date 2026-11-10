@@ -240,6 +240,20 @@ test('a lost signalling message does not leave the call stuck (watchdog rebuilds
   await closeAll(teacher, student);
 });
 
+test('works through proxies/tunnels that block the event stream (long-poll fallback)', async () => {
+  const teacher = await newPage('zh-CN');
+  const id = await createRoom(teacher);
+  await joinFromPrejoin(teacher, '王老师', 'teacher');
+  const student = await newPage('ru-RU');
+  // Simulate a tunnel that never delivers server-sent events
+  await student.addInitScript(() => { window.EventSource = class extends EventTarget { constructor() { super(); } close() {} }; });
+  await student.goto(`${BASE}/r/${id}`);
+  await joinFromPrejoin(student, 'Иван');
+  await Promise.all([waitRemoteVideo(teacher, 60000), waitRemoteVideo(student, 60000)]);
+  assert.equal(await student.evaluate(() => window.__cam.signaling.transport), 'poll');
+  await closeAll(teacher, student);
+});
+
 test('fullscreen on a video tile', async () => {
   const { teacher, student } = await pair();
   await student.hover('.tile:not(.self)');

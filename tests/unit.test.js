@@ -152,6 +152,27 @@ test('signalling: hello, peer-joined, relay, state, leave', async () => {
   sa.close(); sb.close();
 });
 
+test('long-poll fallback: hello, relayed signals, and announcements work without an event stream', async () => {
+  const id = await createAndJoin('poll');
+  const a = (await join(id, 'A')).data; const b = (await join(id, 'B')).data;
+  const sa = sse(`/api/rooms/${id}/events?peer=${a.peerId}&token=${a.token}`); await sa.next('hello');
+  const poll = async (p) => (await req(`/api/rooms/${id}/poll?peer=${p.peerId}&token=${p.token}`)).data.events;
+  const first = await poll(b);
+  assert.equal(first[0].event, 'hello'); assert.equal(first[0].data.peers[0].id, a.peerId);
+  await sa.next('peer-joined', (d) => d.id === b.peerId);
+  // a long poll waits, then returns as soon as a signal arrives
+  const pending = poll(b);
+  await new Promise((r) => setTimeout(r, 200));
+  await req(`/api/rooms/${id}/signal`, { method: 'POST', body: { peer: a.peerId, token: a.token, to: b.peerId, data: { x: 1 } } });
+  const evs = await pending;
+  assert.equal(evs[0].event, 'signal'); assert.deepEqual(evs[0].data.data, { x: 1 });
+  // poller can signal back to the SSE peer
+  await req(`/api/rooms/${id}/signal`, { method: 'POST', body: { peer: b.peerId, token: b.token, to: a.peerId, data: { y: 2 } } });
+  assert.deepEqual((await sa.next('signal')).data, { y: 2 });
+  assert.equal((await req(`/api/rooms/${id}/poll?peer=x&token=y`)).data.events[0].event, 'gone');
+  sa.close();
+});
+
 test('SSE with an expired seat gets a "gone" event (client then re-joins)', async () => {
   const id = await createAndJoin('gone');
   const s = sse(`/api/rooms/${id}/events?peer=nobody&token=x`);

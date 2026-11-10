@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js --demo",
+    "remote": "node server/server.js --demo --public-stun",
     "test": "node --test tests/unit.test.js",
     "test:e2e": "node --test --test-concurrency=1 tests/e2e.test.js",
     "test:all": "npm test && npm run test:e2e"

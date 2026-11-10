@@ -41,17 +41,43 @@ export class Signaling extends EventTarget {
     Object.assign(this, { roomId, peerId, token, es: null, closed: false });
   }
   connect() {
+    // Event stream first. Some proxies and tunnels buffer or block it; if the first message has not
+    // arrived within 6 s, switch to long-polling, which works through anything that passes HTTPS.
+    if (!window.EventSource) return this._poll();
     const q = new URLSearchParams({ peer: this.peerId, token: this.token });
     const es = new EventSource(`/api/rooms/${this.roomId}/events?${q}`);
     this.es = es;
+    let gotHello = false;
     const fwd = (name) => es.addEventListener(name, (ev) => {
       let data = {}; try { data = JSON.parse(ev.data); } catch {}
+      if (name === 'hello') gotHello = true;
       this.dispatchEvent(new CustomEvent(name, { detail: data }));
     });
     ['hello', 'peer-joined', 'peer-reconnected', 'peer-left', 'peer-state', 'signal', 'caption', 'gone'].forEach(fwd);
     es.onopen = () => this.dispatchEvent(new CustomEvent('online'));
     es.onerror = () => { if (!this.closed) this.dispatchEvent(new CustomEvent('offline')); };
     es.addEventListener('gone', () => { es.close(); });
+    setTimeout(() => { if (!gotHello && !this.closed) { es.close(); this.es = null; this._poll(); } }, 6000);
+  }
+  async _poll() {
+    this.transport = 'poll';
+    const q = new URLSearchParams({ peer: this.peerId, token: this.token });
+    let failures = 0;
+    while (!this.closed) {
+      try {
+        const r = await api(`/api/rooms/${this.roomId}/poll?${q}`, { timeout: 35000 });
+        if (failures) this.dispatchEvent(new CustomEvent('online'));
+        failures = 0;
+        for (const { event, data } of r.events || []) {
+          this.dispatchEvent(new CustomEvent(event, { detail: data }));
+          if (event === 'gone') return;
+        }
+      } catch {
+        if (this.closed) return;
+        if (++failures === 1) this.dispatchEvent(new CustomEvent('offline'));
+        await new Promise((res) => setTimeout(res, Math.min(5000, 1000 * failures)));
+      }
+    }
   }
   async signal(to, data) {
     return apiRetry(`/api/rooms/${this.roomId}/signal`, { method: 'POST', body: { peer: this.peerId, token: this.token, to, data } });

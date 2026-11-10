@@ -20,7 +20,9 @@ module.exports = {
 
   // ICE. Self-hosted coturn with "use-auth-secret" (TURN REST credentials).
   // Public Google STUN is blocked in mainland China, so never rely on it.
-  stunUrls: list(env.STUN_URLS),
+  // --public-stun: for quick remote tests without your own TURN server (e.g. through a tunnel).
+  // Cloudflare's STUN for Russia/elsewhere, Xiaomi's for mainland China. Production uses coturn.
+  stunUrls: list(env.STUN_URLS || (process.argv.includes('--public-stun') ? 'stun:stun.cloudflare.com:3478,stun:stun.miwifi.com:3478' : '')),
   turnUrls: list(env.TURN_URLS),
   turnSecret: env.TURN_SECRET || '',
   turnTtl: int(env.TURN_TTL, 12 * 3600),
