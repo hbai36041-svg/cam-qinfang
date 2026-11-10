@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A1A33">
+<title>CAM线上琴房</title>
+<link rel="icon" href="/assets/icon.png">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- ============ Home ============ -->
+<section id="home" class="view" hidden>
+  <header class="topbar">
+    <span></span>
+    <div class="langsel" role="group" aria-label="Language">
+      <button data-lang="zh">中文</button><button data-lang="ru">Русский</button><button data-lang="en">English</button>
+    </div>
+  </header>
+  <main class="home-main">
+    <img class="logo-hero" src="/assets/logo.png" alt="夏空 · Ciaconna Academy of Music" width="820" height="374">
+    <h1 class="title" data-i18n="app">CAM线上琴房</h1>
+    <p class="tagline" data-i18n="tagline"></p>
+    <div class="home-cards">
+      <form id="createForm" class="card" autocomplete="off">
+        <h2 data-i18n="create"></h2>
+        <label class="field"><span data-i18n="roomName"></span><input id="cName" maxlength="40"></label>
+        <label class="field"><span data-i18n="password"></span><input id="cPw" maxlength="32" type="password" autocomplete="new-password"></label>
+        <p class="err" id="createErr" hidden></p>
+        <button class="btn primary" type="submit" id="createBtn" data-i18n="create"></button>
+      </form>
+      <form id="joinForm" class="card" autocomplete="off">
+        <h2 data-i18n="join"></h2>
+        <label class="field"><span data-i18n="code"></span>
+          <input id="jCode" class="code-input" maxlength="6" data-i18n-ph="codePh" autocapitalize="characters" spellcheck="false" inputmode="text"></label>
+        <p class="err" id="joinErr" hidden></p>
+        <button class="btn ghost" type="submit" data-i18n="enter"></button>
+      </form>
+    </div>
+    <a class="diag-link" href="/diag" data-i18n="diag"></a>
+  </main>
+</section>
+
+<!-- ============ Pre-join ============ -->
+<section id="prejoin" class="view" hidden>
+  <header class="topbar">
+    <button class="icon-btn" id="preBack" data-i18n-title="back"></button>
+    <img class="logo-small" src="/assets/logo.png" alt="夏空">
+    <button class="icon-btn" id="preSettings" data-i18n-title="settings"></button>
+  </header>
+  <main class="prejoin-main">
+    <div class="preview-wrap">
+      <div id="previewSlot" class="preview"></div>
+      <div class="pre-toggles">
+        <button class="round-btn" id="preMic" data-i18n-title="mic"></button>
+        <button class="round-btn" id="preCam" data-i18n-title="cam"></button>
+      </div>
+      <div class="meter" aria-hidden="true"><i id="meterBar"></i></div>
+    </div>
+    <form id="prejoinForm" class="card prejoin-card" autocomplete="off">
+      <p class="eyebrow"><span data-i18n="code"></span> · <b id="preCode" class="mono"></b></p>
+      <h2 id="preRoomName"></h2>
+      <p class="err" id="preMediaErr" hidden></p>
+      <label class="field"><span data-i18n="yourName"></span><input id="pName" maxlength="32" required></label>
+      <div class="field"><span data-i18n="role"></span>
+        <div class="seg" id="pRole">
+          <button type="button" data-v="teacher" data-i18n="teacher"></button>
+          <button type="button" data-v="student" data-i18n="student"></button>
+        </div>
+      </div>
+      <label class="field" id="pPwWrap" hidden><span data-i18n="password"></span><input id="pPw" type="password" maxlength="32" autocomplete="off"></label>
+      <p class="err" id="preErr" hidden></p>
+      <button class="btn primary" id="joinBtn" type="submit" data-i18n="joinNow"></button>
+      <button class="btn ghost" type="button" id="preInvite" data-i18n="copyLink"></button>
+      <p class="hint" id="headHint" data-i18n="headphones"></p>
+    </form>
+  </main>
+</section>
+
+<!-- ============ Room ============ -->
+<section id="room" class="view" hidden>
+  <header class="room-bar">
+    <img class="logo-small" src="/assets/logo.png" alt="夏空">
+    <div class="room-title"><b id="rName"></b><button class="chip mono" id="rCode" data-i18n-title="copyLink"></button></div>
+    <div class="room-meta">
+      <button class="chip" id="rMode"></button>
+      <span class="net" id="rNet"><i></i><span></span></span>
+      <span class="timer mono" id="rTimer">00:00</span>
+    </div>
+  </header>
+  <main id="stage" class="stage"></main>
+  <div id="waiting" class="waiting" hidden>
+    <p data-i18n="waiting"></p><small data-i18n="waitingSub"></small>
+    <button class="btn ghost small" id="waitInvite" data-i18n="invite"></button>
+  </div>
+  <div id="captionBox" class="captions" aria-live="polite"></div>
+  <div id="banner" class="banner" hidden></div>
+  <nav class="toolbar" aria-label="controls">
+    <button class="tool" id="tMic"><i></i><span data-i18n="mic"></span></button>
+    <button class="tool" id="tCam"><i></i><span data-i18n="cam"></span></button>
+    <button class="tool" id="tCC"><i></i><span data-i18n="captions"></span></button>
+    <button class="tool" id="tInvite"><i></i><span data-i18n="invite"></span></button>
+    <button class="tool" id="tFull"><i></i><span data-i18n="fullscreen"></span></button>
+    <button class="tool" id="tSet"><i></i><span data-i18n="settings"></span></button>
+    <button class="tool danger" id="tLeave"><i></i><span data-i18n="leave"></span></button>
+  </nav>
+</section>
+
+<!-- ============ Settings drawer ============ -->
+<div id="scrim" class="scrim" hidden></div>
+<aside id="drawer" class="drawer" aria-hidden="true">
+  <header><h3 data-i18n="settings"></h3><button class="icon-btn" id="dClose" aria-label="close"></button></header>
+  <div class="drawer-body">
+    <section>
+      <h4 data-i18n="s_device"></h4>
+      <label class="field"><span data-i18n="camera"></span><select id="sCam"></select></label>
+      <label class="field"><span data-i18n="microphone"></span><select id="sMic"></select></label>
+      <label class="field" id="sSpkWrap"><span data-i18n="speaker"></span><select id="sSpk"></select></label>
+      <label class="field"><span data-i18n="quality"></span>
+        <select id="sQuality"><option value="1080" data-i18n="q1080"></option><option value="720" data-i18n="q720"></option><option value="480" data-i18n="q480"></option></select></label>
+      <label class="switch"><input type="checkbox" id="sMirror"><span data-i18n="mirror"></span></label>
+    </section>
+    <section>
+      <h4 data-i18n="s_audio"></h4>
+      <div class="field"><span data-i18n="audioMode"></span>
+        <div class="mode-cards" id="sMode">
+          <button type="button" data-v="music"><b data-i18n="modeMusic"></b><small data-i18n="modeMusicSub"></small></button>
+          <button type="button" data-v="voice"><b data-i18n="modeVoice"></b><small data-i18n="modeVoiceSub"></small></button>
+        </div>
+      </div>
+      <label class="switch" id="sEchoWrap"><input type="checkbox" id="sEcho"><span><span data-i18n="echo"></span><small data-i18n="echoSub"></small></span></label>
+      <label class="switch"><input type="checkbox" id="sStereo"><span data-i18n="stereo"></span></label>
+      <label class="field"><span data-i18n="bitrate"></span>
+        <select id="sBitrate"><option value="96">96 kbps</option><option value="128">128 kbps</option><option value="192">192 kbps</option><option value="256">256 kbps</option></select></label>
+    </section>
+    <section>
+      <h4 data-i18n="s_beauty"></h4>
+      <label class="switch"><input type="checkbox" id="sBeauty"><span data-i18n="beautyOn"></span></label>
+      <label class="range"><span data-i18n="smooth"></span><input type="range" id="sSmooth" min="0" max="100"><output id="oSmooth"></output></label>
+      <label class="range"><span data-i18n="bright"></span><input type="range" id="sBright" min="0" max="100"><output id="oBright"></output></label>
+      <label class="field"><span data-i18n="beautyPro"></span><select id="sProc"></select></label>
+    </section>
+    <section>
+      <h4 data-i18n="s_captions"></h4>
+      <label class="field"><span data-i18n="capLang"></span>
+        <select id="sCapLang"><option value="zh">中文</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+      <label class="field"><span data-i18n="capShow"></span>
+        <select id="sCapShow"><option value="zh">中文</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+      <label class="switch"><input type="checkbox" id="sCapOrig"><span data-i18n="capOrig"></span></label>
+      <p class="hint" id="capEngine"></p>
+    </section>
+    <section>
+      <h4 data-i18n="s_general"></h4>
+      <label class="field"><span data-i18n="uiLang"></span>
+        <select id="sUi"><option value="zh">中文</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+      <a class="diag-link" href="/diag" target="_blank" rel="noopener" data-i18n="diag"></a>
+      <p class="hint mono" id="sVersion"></p>
+    </section>
+  </div>
+</aside>
+
+<!-- ============ Invite dialog ============ -->
+<div id="inviteDlg" class="dialog" hidden role="dialog" aria-modal="true">
+  <div class="dialog-card">
+    <h3 data-i18n="invite"></h3>
+    <p class="eyebrow" data-i18n="code"></p>
+    <p class="big-code mono" id="iCode"></p>
+    <input id="iLink" readonly>
+    <div class="row">
+      <button class="btn primary" id="iCopy" data-i18n="copyLink"></button>
+      <button class="btn ghost" id="iShare" data-i18n="share"></button>
+    </div>
+    <button class="icon-btn dialog-x" id="iClose" aria-label="close"></button>
+  </div>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

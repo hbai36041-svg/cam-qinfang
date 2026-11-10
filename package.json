@@ -1,0 +1,16 @@
+{
+  "name": "cam-qinfang",
+  "version": "1.0.0",
+  "description": "CAM线上琴房 — browser-based violin lesson video rooms for Ciaconna Academy of Music (夏空音乐学院)",
+  "private": true,
+  "main": "server/server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "ASR_ZH=mock ASR_RU=mock ASR_EN=mock TRANSLATE=mock node server/server.js",
+    "test": "node --test tests/unit.test.js",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e.test.js",
+    "test:all": "npm test && npm run test:e2e"
+  },
+  "license": "UNLICENSED"
+}

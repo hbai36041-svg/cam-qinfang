@@ -1,0 +1,17 @@
+# systemd unit for running without Docker:  /opt/cam-qinfang  +  /etc/cam-qinfang.env
+[Unit]
+Description=CAM线上琴房
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/cam-qinfang
+EnvironmentFile=/etc/cam-qinfang.env
+ExecStart=/usr/bin/node server/server.js
+Restart=always
+User=www-data
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

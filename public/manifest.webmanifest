@@ -1,0 +1,9 @@
+{
+  "name": "CAM线上琴房",
+  "short_name": "CAM琴房",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#081528",
+  "theme_color": "#0A1A33",
+  "icons": [{ "src": "/assets/icon.png", "sizes": "128x128", "type": "image/png" }]
+}

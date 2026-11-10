@@ -1,0 +1,49 @@
+# CAM线上琴房 — one-server deployment: app + Caddy (automatic HTTPS) + coturn (TURN relay).
+#   cp .env.example .env   # fill DOMAIN, TURN_SECRET, PUBLIC_IP, provider keys
+#   docker compose up -d --build
+services:
+  app:
+    build: ..
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8080"
+      PUBLIC_URL: "https://${DOMAIN}"
+      STUN_URLS: "stun:${DOMAIN}:3478"
+      TURN_URLS: "turn:${DOMAIN}:3478?transport=udp,turn:${DOMAIN}:3478?transport=tcp,turns:${DOMAIN}:5349?transport=tcp"
+    expose: ["8080"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [app]
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  coturn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    # host networking: TURN needs a large UDP port range and the real public IP
+    network_mode: host
+    depends_on: [caddy]
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - caddy_data:/caddy:ro   # reuse Caddy's Let's Encrypt certificate for TURNS (5349)
+    command:
+      - -c
+      - /etc/coturn/turnserver.conf
+      - --static-auth-secret=${TURN_SECRET}
+      - --realm=${DOMAIN}
+      - --external-ip=${PUBLIC_IP}
+      - --cert=/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.crt
+      - --pkey=/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.key
+
+volumes:
+  caddy_data:
+  caddy_config:
