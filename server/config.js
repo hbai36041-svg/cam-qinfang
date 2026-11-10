@@ -1,6 +1,8 @@
 'use strict';
 // All configuration comes from environment variables (see deploy/.env.example).
 const env = process.env;
+// `node server/server.js --demo` (or DEMO=1): demo captions without any cloud account — works the same on Windows and macOS
+const demo = process.argv.includes('--demo') || env.DEMO === '1';
 const list = (v) => (v || '').split(',').map((s) => s.trim()).filter(Boolean);
 const int = (v, d) => (Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : d);
 
@@ -25,12 +27,12 @@ module.exports = {
 
   // Captions. Per spoken language, which recogniser to use: tencent | yandex | openai | mock | none
   asr: {
-    zh: env.ASR_ZH || 'none',
-    ru: env.ASR_RU || 'none',
-    en: env.ASR_EN || 'none',
+    zh: env.ASR_ZH || (demo ? 'mock' : 'none'),
+    ru: env.ASR_RU || (demo ? 'mock' : 'none'),
+    en: env.ASR_EN || (demo ? 'mock' : 'none'),
   },
   // Translation: tencent | yandex | openai | mock | none
-  translate: env.TRANSLATE || 'none',
+  translate: env.TRANSLATE || (demo ? 'mock' : 'none'),
 
   tencent: {
     secretId: env.TENCENT_SECRET_ID || '',

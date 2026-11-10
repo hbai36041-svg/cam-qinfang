@@ -7,7 +7,7 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "start": "node server/server.js",
-    "dev": "ASR_ZH=mock ASR_RU=mock ASR_EN=mock TRANSLATE=mock node server/server.js",
+    "dev": "node server/server.js --demo",
     "test": "node --test tests/unit.test.js",
     "test:e2e": "node --test --test-concurrency=1 tests/e2e.test.js",
     "test:all": "npm test && npm run test:e2e"
